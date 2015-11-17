@@ -10,8 +10,8 @@ import lasagne
 
 # Vanilla NN model
 def build_nn(input_var=None):
-    # build input layer of unspecified batch size of 54-dim data pts as row vectors
-    l_in = lasagne.layers.InputLayer(shape=(None,54), input_var=input_var)
+    # build input layer of unspecified batch size of data pts as row vectors
+    l_in = lasagne.layers.InputLayer(shape=(None,8), input_var=input_var)
 
     # first hidden layer, trying 100 units
     l_1 = lasagne.layers.DenseLayer(l_in, num_units=100, nonlinearity=lasagne.nonlinearities.rectify, W=lasagne.init.GlorotUniform())
@@ -36,13 +36,11 @@ def iterate_minibatches(inputs, targets, batchsize, shuffle=False):
 def main(num_epochs=500):
     # training data--currently unnormalized/processed
     X_train = np.load('train_data.npy')
-    np.set_printoptions(threshold='nan')
-    print X_train
-    X_val = np.load('val_data.npy').astype(np.float)
-    Y_train = np.load('train_targets.npy').astype(np.float)
-    Y_val = np.load('val_targets.npy').astype(np.float)
+    X_val = np.load('val_data.npy')
+    Y_train = np.load('train_targets.npy')
+    Y_val = np.load('val_targets.npy')
 
-    input_var = T.matrix('inputs')
+    input_var = T.matrix('inputs', dtype='float64')
     target_var = T.ivector('targets')
 
     network = build_nn(input_var)
@@ -59,8 +57,7 @@ def main(num_epochs=500):
                       dtype=theano.config.floatX)
 
     # use SGD with momentum--may want to try out other methods of training
-    # doesn't look like lasagne has vanilla GD, but dataset is small so it should
-    # be fine to use it.
+    # try using regular GD as well since dataset is small
     params = lasagne.layers.get_all_params(network, trainable=True)
     updates = lasagne.updates.nesterov_momentum(loss, params, learning_rate=0.01, momentum=0.9)
     # theano function to perform training step using the update scheme and calculated
@@ -70,12 +67,13 @@ def main(num_epochs=500):
     val_fn = theano.function([input_var, target_var], [test_loss, test_acc])
 
     # training loop
+    print("Starting training...")
     for epoch in range(num_epochs):
         train_err = 0
         train_batches = 0
         start_time = time.time()
         # for GD call with batchsize = size of training set
-        for batch in iterate_minibatches(X_train, Y_train, 20, shuffle=True):
+        for batch in iterate_minibatches(X_train, Y_train, 300, shuffle=True):
             inputs, targets = batch
             train_err += train_fn(inputs, targets)
             train_batches += 1
@@ -97,4 +95,4 @@ def main(num_epochs=500):
         print("  validation accuracy:\t\t{:.2f} %".format(
             val_acc / val_batches * 100))
 
-main(10)
+main(30)
